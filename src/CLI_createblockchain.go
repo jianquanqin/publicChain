@@ -1,4 +1,4 @@
-package BLC
+package src
 
 func (cli *CLI) creatGenesisBlockChain(address string) {
 	// create coinbase transaction

@@ -1,4 +1,4 @@
-package BLC
+package src
 
 type TXInput struct {
 	//1 transaction hash

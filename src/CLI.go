@@ -1,4 +1,4 @@
-package BLC
+package src
 
 import (
 	"flag"
@@ -12,9 +12,11 @@ type CLI struct{}
 func printUsage() {
 	fmt.Println("Usage:")
 	fmt.Println("\tcreatBlockChain -address --genesis address")
-	fmt.Println("\ttranfer -from FROM -to TO -amount AMOUNT --transaction details")
+	fmt.Println("\ttransfer -from FROM -to TO -amount AMOUNT --transaction details")
 	fmt.Println("\tprintChain -- output block's information")
 	fmt.Println("\tgetBalance -address -- output address's balance")
+	fmt.Println("\taddressLists -- output address list")
+	fmt.Println("\tcreateNewWallet -- output address list")
 }
 func isValidArgs() {
 	if len(os.Args) < 2 {
@@ -25,10 +27,12 @@ func isValidArgs() {
 func (cli CLI) Run() {
 	isValidArgs()
 	//custom command
+	addressListsCmd := flag.NewFlagSet("addressLists", flag.ExitOnError)
 	transferBlockCmd := flag.NewFlagSet("transfer", flag.ExitOnError)
 	printChainCmd := flag.NewFlagSet("printChain", flag.ExitOnError)
 	creatBlockChainCmd := flag.NewFlagSet("creatBlockChain", flag.ExitOnError)
 	getBalanceCmd := flag.NewFlagSet("getBalance", flag.ExitOnError)
+	createNewWalletCmd := flag.NewFlagSet("createNewWallet", flag.ExitOnError)
 
 	flagFrom := transferBlockCmd.String("from", "", "origin address")
 	flagTo := transferBlockCmd.String("to", "", "destination address")
@@ -38,6 +42,16 @@ func (cli CLI) Run() {
 	getBalanceWithAddress := getBalanceCmd.String("address", "", "inquire one's account")
 
 	switch os.Args[1] {
+	case "createNewWallet":
+		err := createNewWalletCmd.Parse(os.Args[2:])
+		if err != nil {
+			log.Panic(err)
+		}
+	case "addressLists":
+		err := addressListsCmd.Parse(os.Args[2:])
+		if err != nil {
+			log.Panic(err)
+		}
 	case "transfer":
 		err := transferBlockCmd.Parse(os.Args[2:])
 		if err != nil {
@@ -61,6 +75,12 @@ func (cli CLI) Run() {
 	default:
 		printUsage()
 		os.Exit(1)
+	}
+	if createNewWalletCmd.Parsed() {
+		cli.createWallet()
+	}
+	if addressListsCmd.Parsed() {
+		cli.AddressLists()
 	}
 	if transferBlockCmd.Parsed() {
 		if *flagFrom == "" || *flagTo == "" || *flagAmount == "" {

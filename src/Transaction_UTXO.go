@@ -1,4 +1,4 @@
-package BLC
+package src
 
 type UTXO struct {
 	TxHash []byte

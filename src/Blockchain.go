@@ -1,7 +1,8 @@
-package BLC
+package src
 
 import (
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"github.com/boltdb/bolt"
 	"log"
@@ -208,7 +209,7 @@ func (blockchain *Blockchain) MineNewBlock(from, to, amount []string) {
 
 	var block *Block
 
-	blockchain.DB.View(func(tx *bolt.Tx) error {
+	err := blockchain.DB.View(func(tx *bolt.Tx) error {
 		b := tx.Bucket([]byte(blockTableName))
 		if b != nil {
 			hash := b.Get([]byte("l"))
@@ -217,22 +218,34 @@ func (blockchain *Blockchain) MineNewBlock(from, to, amount []string) {
 		}
 		return nil
 	})
+	if err != nil {
+		errors.New("view database failed")
+	}
 
 	// Establish new block with new height, Hash and txs
 
 	block = Newblock(block.Height+1, block.Hash, txs)
 	//store new block
-	blockchain.DB.Update(func(tx *bolt.Tx) error {
+	err1 := blockchain.DB.Update(func(tx *bolt.Tx) error {
 
 		b := tx.Bucket([]byte(blockTableName))
 		if b != nil {
-			b.Put(block.Hash, block.Serialize())
-			b.Put([]byte("l"), block.Hash)
-
+			err2 := b.Put(block.Hash, block.Serialize())
+			if err2 != nil {
+				errors.New("put new data failed")
+			}
+			err3 := b.Put([]byte("l"), block.Hash)
+			if err3 != nil {
+				errors.New("save current hash failed")
+			}
 			blockchain.Tip = block.Hash
+
 		}
 		return nil
 	})
+	if err1 != nil {
+		errors.New("update database failed")
+	}
 }
 
 func (blockchain *Blockchain) UnUTXOs(address string, txs []*Transaction) []*UTXO {
