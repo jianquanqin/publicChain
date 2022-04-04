@@ -65,12 +65,12 @@ func (blockchain *Blockchain) PrintChain() {
 			for _, in := range tx.Vins {
 				fmt.Printf("%x\n", in.TxHash)
 				fmt.Printf("%d\n", in.Vout)
-				fmt.Printf("%s\n", in.ScriptSig)
+				fmt.Printf("%x\n", in.PublicKey)
 			}
 			fmt.Println("Vouts")
 			for _, out := range tx.Vouts {
 				fmt.Println(out.Value)
-				fmt.Println(out.ScriptPublicKey)
+				fmt.Println(out.Ripedmd160Hash)
 			}
 		}
 
@@ -255,7 +255,13 @@ func (blockchain *Blockchain) UnUTXOs(address string, txs []*Transaction) []*UTX
 	for _, tx := range txs {
 		if tx.IsCoinbaseTransaction() == false {
 			for _, in := range tx.Vins {
-				if in.UnlockWithAddress(address) {
+
+				//decode address
+				publicKey := Base58Decode([]byte(address))
+				//get ripemdhash160
+				ripemd160hash := publicKey[1 : len(publicKey)-4]
+				//unlock
+				if in.UnlockRipedmd160Hash(ripemd160hash) {
 					key := hex.EncodeToString(in.TxHash)
 					spentTXOutputs[key] = append(spentTXOutputs[key], in.Vout)
 				}
@@ -303,7 +309,13 @@ func (blockchain *Blockchain) UnUTXOs(address string, txs []*Transaction) []*UTX
 			tx := block.Txs[i]
 			if tx.IsCoinbaseTransaction() == false {
 				for _, in := range tx.Vins {
-					if in.UnlockWithAddress(address) {
+
+					//decode address
+					publicKey := Base58Decode([]byte(address))
+					//get ripemdhash160
+					ripemd160hash := publicKey[1 : len(publicKey)-4]
+
+					if in.UnlockRipedmd160Hash(ripemd160hash) {
 						key := hex.EncodeToString(in.TxHash)
 						spentTXOutputs[key] = append(spentTXOutputs[key], in.Vout)
 					}

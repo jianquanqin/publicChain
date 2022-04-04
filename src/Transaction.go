@@ -29,9 +29,9 @@ func NewCoinbaseTransAction(address string) *Transaction {
 
 	//consume
 
-	txInput := &TXInput{[]byte{}, -1, "Genesis data"}
+	txInput := &TXInput{[]byte{}, -1, nil, []byte{}}
 
-	txOutput := &TXOutput{10, address}
+	txOutput := NewTXOutput(10, address)
 
 	txCoinbase := &Transaction{[]byte{}, []*TXInput{txInput}, []*TXOutput{txOutput}}
 
@@ -61,24 +61,28 @@ func NewSimpleTransaction(from, to string, amount int, blockchain *Blockchain, t
 
 	money, spendableUTXODic := blockchain.FindSpendableUTXOS(from, amount, txs)
 
+	//get a wallets
+	//find the specific wallet with from
+	wallets, _ := NewWallets()
+	wallet := wallets.WalletsMap[from]
+
 	//consume
 	var txInputs []*TXInput
-
 	for txHash, indexSlice := range spendableUTXODic {
 		for _, index := range indexSlice {
 			txHashBytes, _ := hex.DecodeString(txHash)
-			txInput := &TXInput{txHashBytes, index, from}
+			txInput := &TXInput{txHashBytes, index, nil, wallet.PublicKey}
 			txInputs = append(txInputs, txInput)
 		}
 	}
 
 	//transfer
 	var txOutputs []*TXOutput
-	txOutput := &TXOutput{int64(amount), to}
+	txOutput := NewTXOutput(int64(amount), to)
 	txOutputs = append(txOutputs, txOutput)
 
 	//the rest amount
-	txOutput = &TXOutput{int64(money) - int64(amount), from}
+	txOutput = NewTXOutput(int64(money)-int64(amount), from)
 	txOutputs = append(txOutputs, txOutput)
 
 	tx := &Transaction{[]byte{}, txInputs, txOutputs}

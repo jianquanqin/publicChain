@@ -60,7 +60,7 @@ func NewWallet() *Wallet {
 
 //first hash256 then hash160
 
-func (wallet *Wallet) Ripemd160(publicKey []byte) []byte {
+func Ripemd160(publicKey []byte) []byte {
 
 	//1.hash256
 	hash256 := sha256.New()
@@ -89,7 +89,7 @@ func CheckSum(rpm160 []byte) []byte {
 
 func (wallet *Wallet) GetAddress() []byte {
 	//1 hash256.160 publicKey
-	rpm160 := wallet.Ripemd160(wallet.PublicKey)
+	rpm160 := Ripemd160(wallet.PublicKey)
 	versionRipedmd160hash := append([]byte{version}, rpm160...)
 
 	checkSumBytes := CheckSum(versionRipedmd160hash)
