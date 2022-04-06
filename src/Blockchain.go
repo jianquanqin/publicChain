@@ -1,6 +1,8 @@
 package src
 
 import (
+	"bytes"
+	"crypto/ecdsa"
 	"encoding/hex"
 	"errors"
 	"fmt"
@@ -70,7 +72,7 @@ func (blockchain *Blockchain) PrintChain() {
 			fmt.Println("Vouts")
 			for _, out := range tx.Vouts {
 				fmt.Println(out.Value)
-				fmt.Println(out.Ripedmd160Hash)
+				fmt.Println(out.Ripemd160Hash)
 			}
 		}
 
@@ -160,6 +162,21 @@ func BlockChainObject() *Blockchain {
 	return &Blockchain{tip, db}
 }
 
+func (blockchain *Blockchain) SignTransaction(tx *Transaction, privateKey ecdsa.PrivateKey) {
+	if tx.IsCoinbaseTransaction() {
+		return
+	}
+	prevTXs := make(map[string]Transaction)
+	for _, vin := range tx.Vins {
+		prevTX, err := blockchain.FindTransaction(vin.TxHash)
+		if err != nil {
+			log.Panic(err)
+		}
+		prevTXs[hex.EncodeToString(prevTX.TxHash)] = prevTX
+	}
+	tx.Sign(privateKey, prevTXs)
+}
+
 //get Available output
 
 func (blockchain *Blockchain) FindSpendableUTXOS(from string, amount int, txs []*Transaction) (int64, map[string][]int) {
@@ -188,25 +205,84 @@ func (blockchain *Blockchain) FindSpendableUTXOS(from string, amount int, txs []
 
 }
 
+//get transaction through a specific transaction hash
+
+func (blockchain *Blockchain) FindTransaction(ID []byte) (Transaction, error) {
+
+	bci := blockchain.Iterator()
+
+	for {
+
+		block := bci.Next()
+
+		for _, tx := range block.Txs {
+			if bytes.Compare(tx.TxHash, ID) == 0 {
+				return *tx, nil
+			}
+		}
+		var hashInt big.Int
+		hashInt.SetBytes(block.PreBlockHash)
+
+		if big.NewInt(0).Cmp(&hashInt) == 0 {
+			break
+		}
+	}
+	return Transaction{}, nil
+}
+
+//verify transactions
+
+func (blockchain *Blockchain) VerifyTransaction(tx *Transaction) bool {
+
+	prevTXs := make(map[string]Transaction)
+
+	//get all txInputs and then get txHash
+	for _, vin := range tx.Vins {
+		prevTX, err := blockchain.FindTransaction(vin.TxHash)
+		if err != nil {
+			log.Panic(err)
+		}
+		//store txHash and Transaction into HashMap
+		prevTXs[hex.EncodeToString(prevTX.TxHash)] = prevTX
+	}
+	return tx.Verify(prevTXs)
+}
+
 //when transactions are finished, start to package the transaction to generate a new block
 
 func (blockchain *Blockchain) MineNewBlock(from, to, amount []string) {
 
+	//1.get all transactions
+
 	var txs []*Transaction
 
+	//range all address in from
 	for index, address := range from {
 		value, _ := strconv.Atoi(amount[index])
-		// establish a transaction
+		// use single address to create transaction
+		// all transactions has been verified
 		tx := NewSimpleTransaction(address, to[index], value, blockchain, txs)
 		txs = append(txs, tx)
 	}
+
+	//reward
+	tx := NewCoinbaseTransAction(from[0])
+	txs = append(txs, tx)
 
 	fmt.Println(from)
 	fmt.Println(to)
 	fmt.Println(amount)
 
-	// Establish transaction slices through relevant algorithms
+	//2.verify all transactions which will packaged in new block
 
+	for _, tx := range txs {
+		if blockchain.VerifyTransaction(tx) != true {
+			log.Panic("signature failed")
+		}
+	}
+
+	//3.get the latest block
+	//define a block and view database, then get the block
 	var block *Block
 
 	err := blockchain.DB.View(func(tx *bolt.Tx) error {
@@ -222,10 +298,11 @@ func (blockchain *Blockchain) MineNewBlock(from, to, amount []string) {
 		errors.New("view database failed")
 	}
 
-	// Establish new block with new height, Hash and txs
+	//4.use block above to create a new block
+	//Establish new block with new height, Hash and txs
 
 	block = Newblock(block.Height+1, block.Hash, txs)
-	//store new block
+	//5.store new block
 	err1 := blockchain.DB.Update(func(tx *bolt.Tx) error {
 
 		b := tx.Bucket([]byte(blockTableName))
