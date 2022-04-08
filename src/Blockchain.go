@@ -1,8 +1,6 @@
 package src
 
 import (
-	"bytes"
-	"crypto/ecdsa"
 	"encoding/hex"
 	"errors"
 	"fmt"
@@ -62,17 +60,17 @@ func (blockchain *Blockchain) PrintChain() {
 		fmt.Println("Txs:")
 
 		for _, tx := range block.Txs {
-			fmt.Printf("%x\n", tx.TxHash)
+			fmt.Printf("Tansaction hash:%x\n", tx.TxHash)
 			fmt.Println("Vins:")
 			for _, in := range tx.Vins {
-				fmt.Printf("%x\n", in.TxHash)
-				fmt.Printf("%d\n", in.Vout)
-				fmt.Printf("%x\n", in.PublicKey)
+				fmt.Printf(" Tansaction hash:%x\n", in.TxHash)
+				fmt.Printf(" TXOutput index:%d\n", in.Vout)
+				fmt.Printf(" ScriptSig:%s\n", in.ScriptSig)
 			}
-			fmt.Println("Vouts")
+			fmt.Println("Vouts:")
 			for _, out := range tx.Vouts {
-				fmt.Println(out.Value)
-				fmt.Println(out.Ripemd160Hash)
+				fmt.Println(" Output Value:", out.Value)
+				fmt.Println(" ScriptPublicKey:", out.ScriptPublicKey)
 			}
 		}
 
@@ -162,21 +160,6 @@ func BlockChainObject() *Blockchain {
 	return &Blockchain{tip, db}
 }
 
-func (blockchain *Blockchain) SignTransaction(tx *Transaction, privateKey ecdsa.PrivateKey) {
-	if tx.IsCoinbaseTransaction() {
-		return
-	}
-	prevTXs := make(map[string]Transaction)
-	for _, vin := range tx.Vins {
-		prevTX, err := blockchain.FindTransaction(vin.TxHash)
-		if err != nil {
-			log.Panic(err)
-		}
-		prevTXs[hex.EncodeToString(prevTX.TxHash)] = prevTX
-	}
-	tx.Sign(privateKey, prevTXs)
-}
-
 //get Available output
 
 func (blockchain *Blockchain) FindSpendableUTXOS(from string, amount int, txs []*Transaction) (int64, map[string][]int) {
@@ -205,84 +188,25 @@ func (blockchain *Blockchain) FindSpendableUTXOS(from string, amount int, txs []
 
 }
 
-//get transaction through a specific transaction hash
-
-func (blockchain *Blockchain) FindTransaction(ID []byte) (Transaction, error) {
-
-	bci := blockchain.Iterator()
-
-	for {
-
-		block := bci.Next()
-
-		for _, tx := range block.Txs {
-			if bytes.Compare(tx.TxHash, ID) == 0 {
-				return *tx, nil
-			}
-		}
-		var hashInt big.Int
-		hashInt.SetBytes(block.PreBlockHash)
-
-		if big.NewInt(0).Cmp(&hashInt) == 0 {
-			break
-		}
-	}
-	return Transaction{}, nil
-}
-
-//verify transactions
-
-func (blockchain *Blockchain) VerifyTransaction(tx *Transaction) bool {
-
-	prevTXs := make(map[string]Transaction)
-
-	//get all txInputs and then get txHash
-	for _, vin := range tx.Vins {
-		prevTX, err := blockchain.FindTransaction(vin.TxHash)
-		if err != nil {
-			log.Panic(err)
-		}
-		//store txHash and Transaction into HashMap
-		prevTXs[hex.EncodeToString(prevTX.TxHash)] = prevTX
-	}
-	return tx.Verify(prevTXs)
-}
-
 //when transactions are finished, start to package the transaction to generate a new block
 
 func (blockchain *Blockchain) MineNewBlock(from, to, amount []string) {
 
-	//1.get all transactions
-
 	var txs []*Transaction
 
-	//range all address in from
 	for index, address := range from {
 		value, _ := strconv.Atoi(amount[index])
-		// use single address to create transaction
-		// all transactions has been verified
+		// establish a transaction
 		tx := NewSimpleTransaction(address, to[index], value, blockchain, txs)
 		txs = append(txs, tx)
 	}
-
-	//reward
-	tx := NewCoinbaseTransAction(from[0])
-	txs = append(txs, tx)
 
 	fmt.Println(from)
 	fmt.Println(to)
 	fmt.Println(amount)
 
-	//2.verify all transactions which will packaged in new block
+	// Establish transaction slices through relevant algorithms
 
-	for _, tx := range txs {
-		if blockchain.VerifyTransaction(tx) != true {
-			log.Panic("signature failed")
-		}
-	}
-
-	//3.get the latest block
-	//define a block and view database, then get the block
 	var block *Block
 
 	err := blockchain.DB.View(func(tx *bolt.Tx) error {
@@ -298,11 +222,10 @@ func (blockchain *Blockchain) MineNewBlock(from, to, amount []string) {
 		errors.New("view database failed")
 	}
 
-	//4.use block above to create a new block
-	//Establish new block with new height, Hash and txs
+	// Establish new block with new height, Hash and txs
 
 	block = Newblock(block.Height+1, block.Hash, txs)
-	//5.store new block
+	//store new block
 	err1 := blockchain.DB.Update(func(tx *bolt.Tx) error {
 
 		b := tx.Bucket([]byte(blockTableName))
@@ -332,13 +255,7 @@ func (blockchain *Blockchain) UnUTXOs(address string, txs []*Transaction) []*UTX
 	for _, tx := range txs {
 		if tx.IsCoinbaseTransaction() == false {
 			for _, in := range tx.Vins {
-
-				//decode address
-				publicKey := Base58Decode([]byte(address))
-				//get ripemdhash160
-				ripemd160hash := publicKey[1 : len(publicKey)-4]
-				//unlock
-				if in.UnlockRipedmd160Hash(ripemd160hash) {
+				if in.UnlockWithAddress(address) {
 					key := hex.EncodeToString(in.TxHash)
 					spentTXOutputs[key] = append(spentTXOutputs[key], in.Vout)
 				}
@@ -359,10 +276,10 @@ func (blockchain *Blockchain) UnUTXOs(address string, txs []*Transaction) []*UTX
 							var isUnSpentUTXO bool
 							for _, outIndex := range indexSlice {
 								if index == outIndex {
-									isUnSpentUTXO = true
+									isUnSpentUTXO = false
 									continue work1
 								}
-								if isUnSpentUTXO == false {
+								if isUnSpentUTXO == true {
 									utxo := &UTXO{tx.TxHash, index, out}
 									unUTXOs = append(unUTXOs, utxo)
 								}
@@ -386,13 +303,7 @@ func (blockchain *Blockchain) UnUTXOs(address string, txs []*Transaction) []*UTX
 			tx := block.Txs[i]
 			if tx.IsCoinbaseTransaction() == false {
 				for _, in := range tx.Vins {
-
-					//decode address
-					publicKey := Base58Decode([]byte(address))
-					//get ripemdhash160
-					ripemd160hash := publicKey[1 : len(publicKey)-4]
-
-					if in.UnlockRipedmd160Hash(ripemd160hash) {
+					if in.UnlockWithAddress(address) {
 						key := hex.EncodeToString(in.TxHash)
 						spentTXOutputs[key] = append(spentTXOutputs[key], in.Vout)
 					}
@@ -403,8 +314,6 @@ func (blockchain *Blockchain) UnUTXOs(address string, txs []*Transaction) []*UTX
 				if out.UnlockScriptPublicKeyWithAddress(address) {
 					//fmt.Println(out)
 					if spentTXOutputs != nil {
-
-						//map[5a6ee5c721941fb8d62d6458356d8aa67514cec473dea0a04943f69cec6912f1:[0]]
 
 						if len(spentTXOutputs) != 0 {
 

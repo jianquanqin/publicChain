@@ -10,109 +10,111 @@ import (
 	"log"
 )
 
-//create a wallet
-
-//1.Produce a pubKey and privateKey
-//2.for pubKey: first hash256 and then hash160
-//3.select the last four nums(add check digit)
-//4.add version(1) \ hash160(20) \ add check digit(4)
-//5.Base58Encode(25),then you can get address
-//6.Send address to sender,the sender decoded address to pubKey and sign
-//7.You decrypt transaction with your privateKey
-
 const version = byte(0x00)
 const addressChecksumLen = 4
 
 type Wallet struct {
+
+	//1.privateKey
 	PrivateKey ecdsa.PrivateKey
-	PublicKey  []byte
+
+	//2.publicKey
+	PublicKey []byte
 }
 
-//produce a publicKey through privateKey
+func IsValidForAddress(address []byte) bool {
 
-func NewKeyPair() (ecdsa.PrivateKey, []byte) {
+	//decode to version_ripemd160hash(21) + checkSumBytes(4)
+	version_publicKey_checkSumBytes := Base58Decode(address)
 
-	//get a parameter
-	curve := elliptic.P256()
-
-	//use parameter to privateKey
-	privateKey, err := ecdsa.GenerateKey(curve, rand.Reader)
-	if err != nil {
-		log.Panic(err)
+	if len(version_publicKey_checkSumBytes) < 4 {
+		return false
 	}
-	//because privateKey is a struct, pubKey is one if its properties
-	//we can get pubKey through privateKey
-	//
-	pubKey := append(privateKey.PublicKey.X.Bytes(), privateKey.PublicKey.Y.Bytes()...)
 
-	return *privateKey, pubKey
+	//get checkSumbytes, the first method to get checkSumBytes
+	checkSumbytes1 := version_publicKey_checkSumBytes[len(version_publicKey_checkSumBytes)-addressChecksumLen:]
+
+	//get version_ripemd160
+	version_ripemd160 := version_publicKey_checkSumBytes[:len(version_publicKey_checkSumBytes)-addressChecksumLen]
+
+	//double hash256 and get another checkSumBytes, the second method to get checkSumBytes
+	checkSumBytes2 := CheckSum(version_ripemd160)
+
+	//compare with them
+	if bytes.Compare(checkSumbytes1, checkSumBytes2) == 0 {
+		return true
+	}
+	return false
 }
 
-// create a wallet
+//Get address
 
-func NewWallet() *Wallet {
+func (w *Wallet) GetAddress() []byte {
 
-	privateKey, pubKey := NewKeyPair()
+	//get hash160 20
+	ripemd160Hash := w.Ripemd160Hash(w.PublicKey)
+	//add version to ripemd160 1+20
+	version_ripemd160Hash := append([]byte{version}, ripemd160Hash...)
 
-	return &Wallet{privateKey, pubKey}
+	//get the checksumBytes and add 1+20+4
+	checkSumBytes := CheckSum(version_ripemd160Hash)
 
+	bytes := append(version_ripemd160Hash, checkSumBytes...)
+
+	return Base58Encode(bytes)
 }
 
-//first hash256 then hash160
+//checksumBytes
 
-func Ripemd160(publicKey []byte) []byte {
+func CheckSum(b []byte) []byte {
+
+	hashFirst := sha256.Sum256(b)
+	hashSecond := sha256.Sum256(hashFirst[:])
+
+	return hashSecond[:addressChecksumLen]
+}
+
+//hash160
+
+func (w *Wallet) Ripemd160Hash(publicKey []byte) []byte {
 
 	//1.hash256
 	hash256 := sha256.New()
 	hash256.Write(publicKey)
 	hash := hash256.Sum(nil)
 
-	//2.ripemd160
-	ripeMd160 := ripemd160.New()
-	ripeMd160.Write(hash)
+	//2.hash160
+	ripemd160 := ripemd160.New()
+	ripemd160.Write(hash)
 
-	return ripeMd160.Sum(nil)
+	return ripemd160.Sum(nil)
 }
 
-//CheckSum
+//create a wallet
 
-func CheckSum(rpm160 []byte) []byte {
+func NewWallet() *Wallet {
 
-	hash1 := sha256.Sum256(rpm160)
-	hash2 := sha256.Sum256(hash1[:])
+	privateKey, publicKey := NewPair()
+	//the privateKey is very complex
+	//fmt.Println("privateKey:", privateKey)
+	//fmt.Println("publicKey:", publicKey)
 
-	return hash2[:addressChecksumLen]
-
+	return &Wallet{privateKey, publicKey}
 }
 
-//get address
+//produce a privateKey
+//you also can merge these two functions
 
-func (wallet *Wallet) GetAddress() []byte {
-	//1 hash256.160 publicKey
-	rpm160 := Ripemd160(wallet.PublicKey)
-	versionRipedmd160hash := append([]byte{version}, rpm160...)
+func NewPair() (ecdsa.PrivateKey, []byte) {
 
-	checkSumBytes := CheckSum(versionRipedmd160hash)
-	bytes := append(versionRipedmd160hash, checkSumBytes...)
-
-	return Base58Encode(bytes)
-}
-
-//verify an address
-
-func (wallet *Wallet) VerifyAddress(address []byte) bool {
-
-	//first decode
-	versionPubKeyCheckSumBytes := Base58Decode(address)
-	//fmt.Println(versionPubKeyCheckSumBytes)
-
-	CheckSumBytes := versionPubKeyCheckSumBytes[len(versionPubKeyCheckSumBytes)-addressChecksumLen:]
-	versionRipemd160 := versionPubKeyCheckSumBytes[:len(versionPubKeyCheckSumBytes)-addressChecksumLen]
-
-	//verify
-	checkBytes := CheckSum(versionRipemd160)
-	if bytes.Compare(CheckSumBytes, checkBytes) == 0 {
-		return true
+	//create a curve
+	curve := elliptic.P256()
+	//use curve to generate privateKey
+	privateKey, err := ecdsa.GenerateKey(curve, rand.Reader)
+	if err != nil {
+		log.Panic(err)
 	}
-	return false
+	//get publicKey through privateKey
+	pubKey := append(privateKey.PublicKey.X.Bytes(), privateKey.PublicKey.Y.Bytes()...)
+	return *privateKey, pubKey
 }

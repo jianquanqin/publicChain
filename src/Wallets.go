@@ -1,75 +1,27 @@
 package src
 
-import (
-	"bytes"
-	"crypto/elliptic"
-	"encoding/gob"
-	"fmt"
-	"io/ioutil"
-	"log"
-	"os"
-)
+import "fmt"
 
-const walletFile = "Wallet.dat"
+//a struct to collect wallet
 
 type Wallets struct {
-	WalletsMap map[string]*Wallet
+	WalletMap map[string]*Wallet
 }
 
-//create collection of wallet
+//creates a new wallets
 
-func NewWallets() (*Wallets, error) {
-
-	if _, err := os.Stat(walletFile); os.IsNotExist(err) {
-		wallets := &Wallets{}
-		wallets.WalletsMap = make(map[string]*Wallet)
-		return wallets, err
-	}
-	fileContent, err := ioutil.ReadFile(walletFile)
-	if err != nil {
-		log.Panic(err)
-	}
-
-	var wallets Wallets
-	gob.Register(elliptic.P256())
-	decoder := gob.NewDecoder(bytes.NewReader(fileContent))
-	err = decoder.Decode(&wallets)
-	if err != nil {
-		log.Panic(err)
-	}
-
-	return &wallets, nil
+func NewWallets() *Wallets {
+	//create a struct
+	wallets := &Wallets{}
+	//access its property and initialize it
+	wallets.WalletMap = make(map[string]*Wallet)
+	return wallets
 }
 
-// create a  new wallet
-
-func (w *Wallets) CreateNewWallet() {
-
+func (wallets *Wallets) CreatNewWallet() {
+	//create a new wallet
 	wallet := NewWallet()
-	fmt.Printf("Address：%s\n", wallet.GetAddress())
-	w.WalletsMap[string(wallet.GetAddress())] = wallet
-
-	w.SaveWallets()
-}
-
-//write the info of wallets to file
-
-func (w *Wallets) SaveWallets() {
-	var content bytes.Buffer
-
-	//the purpose of register is to Serialization
-	gob.Register(elliptic.P256())
-
-	encoder := gob.NewEncoder(&content)
-	err := encoder.Encode(&w)
-
-	if err != nil {
-		log.Panic(err)
-	}
-
-	// write the serialized data to file
-	err = ioutil.WriteFile(walletFile, content.Bytes(), 0644)
-	if err != nil {
-		log.Panic(err)
-	}
+	fmt.Printf("Wallet address is: \n%s\n", wallet.GetAddress())
+	//throw wallet into wallets (a map)
+	wallets.WalletMap[string(wallet.GetAddress())] = wallet
 }

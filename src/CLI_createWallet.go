@@ -3,8 +3,8 @@ package src
 import "fmt"
 
 func (cli *CLI) createWallet() {
-	wallets, _ := NewWallets()
-	wallets.CreateNewWallet()
+	wallets := NewWallets()
+	wallets.CreatNewWallet()
 
-	fmt.Println(len(wallets.WalletsMap))
+	fmt.Println(wallets.WalletMap)
 }
