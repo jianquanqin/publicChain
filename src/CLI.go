@@ -12,10 +12,11 @@ type CLI struct{}
 func printUsage() {
 	fmt.Println("Usage:")
 	fmt.Println("\tcreateWallet -- create wallet")
+	fmt.Println("\tgetAddressList -- print all wallet's address")
 	fmt.Println("\tcreateBlockChain -address --genesis address")
 	fmt.Println("\ttransfer -from FROM -to TO -amount AMOUNT --transaction details")
 	fmt.Println("\tprintChain -- output block's information")
-	fmt.Println("\tgetBalance -address -- output address's balance")
+	fmt.Println("\tgetBalance -address -- output balance")
 }
 func isValidArgs() {
 	if len(os.Args) < 2 {
@@ -26,6 +27,7 @@ func isValidArgs() {
 func (cli CLI) Run() {
 	isValidArgs()
 	//custom command
+	getAddressListCmd := flag.NewFlagSet("getAddressList", flag.ExitOnError)
 	createWalletCmd := flag.NewFlagSet("createWallet", flag.ExitOnError)
 	transferBlockCmd := flag.NewFlagSet("transfer", flag.ExitOnError)
 	printChainCmd := flag.NewFlagSet("printChain", flag.ExitOnError)
@@ -40,6 +42,11 @@ func (cli CLI) Run() {
 	getBalanceWithAddress := getBalanceCmd.String("address", "", "inquire one's account")
 
 	switch os.Args[1] {
+	case "getAddressList":
+		err := getAddressListCmd.Parse(os.Args[2:])
+		if err != nil {
+			log.Panic(err)
+		}
 	case "createWallet":
 		err := createWalletCmd.Parse(os.Args[2:])
 		if err != nil {
@@ -68,6 +75,10 @@ func (cli CLI) Run() {
 	default:
 		printUsage()
 		os.Exit(1)
+	}
+	if getAddressListCmd.Parsed() {
+
+		cli.GetAddressList()
 	}
 	if createWalletCmd.Parsed() {
 

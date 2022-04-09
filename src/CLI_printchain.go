@@ -6,6 +6,7 @@ import (
 )
 
 func (cli CLI) printChain() {
+
 	if DBExists() == false {
 		fmt.Println("database didn't exist")
 		os.Exit(1)
@@ -13,4 +14,5 @@ func (cli CLI) printChain() {
 	blockchain := BlockChainObject()
 	defer blockchain.DB.Close()
 	blockchain.PrintChain()
+
 }

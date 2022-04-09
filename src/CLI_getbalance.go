@@ -4,7 +4,7 @@ import "fmt"
 
 func (cli CLI) getBalance(address string) {
 
-	fmt.Println("Address：" + address)
+	//fmt.Println("Address：" + address)
 
 	blockchain := BlockChainObject()
 	defer blockchain.DB.Close()

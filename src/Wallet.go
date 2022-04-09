@@ -6,6 +6,7 @@ import (
 	"crypto/elliptic"
 	"crypto/rand"
 	"crypto/sha256"
+	"fmt"
 	"golang.org/x/crypto/ripemd160"
 	"log"
 )
@@ -28,7 +29,7 @@ func IsValidForAddress(address []byte) bool {
 	version_publicKey_checkSumBytes := Base58Decode(address)
 
 	if len(version_publicKey_checkSumBytes) < 4 {
-		return false
+		fmt.Println("The address is not long enough")
 	}
 
 	//get checkSumbytes, the first method to get checkSumBytes
@@ -52,7 +53,7 @@ func IsValidForAddress(address []byte) bool {
 func (w *Wallet) GetAddress() []byte {
 
 	//get hash160 20
-	ripemd160Hash := w.Ripemd160Hash(w.PublicKey)
+	ripemd160Hash := Ripemd160Hash(w.PublicKey)
 	//add version to ripemd160 1+20
 	version_ripemd160Hash := append([]byte{version}, ripemd160Hash...)
 
@@ -76,7 +77,7 @@ func CheckSum(b []byte) []byte {
 
 //hash160
 
-func (w *Wallet) Ripemd160Hash(publicKey []byte) []byte {
+func Ripemd160Hash(publicKey []byte) []byte {
 
 	//1.hash256
 	hash256 := sha256.New()

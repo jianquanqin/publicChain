@@ -1,6 +1,8 @@
 package src
 
 import (
+	"bytes"
+	"crypto/ecdsa"
 	"encoding/hex"
 	"errors"
 	"fmt"
@@ -65,12 +67,12 @@ func (blockchain *Blockchain) PrintChain() {
 			for _, in := range tx.Vins {
 				fmt.Printf(" Tansaction hash:%x\n", in.TxHash)
 				fmt.Printf(" TXOutput index:%d\n", in.Vout)
-				fmt.Printf(" ScriptSig:%s\n", in.ScriptSig)
+				fmt.Printf(" PublicKey:%x\n", in.PublicKey)
 			}
 			fmt.Println("Vouts:")
 			for _, out := range tx.Vouts {
 				fmt.Println(" Output Value:", out.Value)
-				fmt.Println(" ScriptPublicKey:", out.ScriptPublicKey)
+				fmt.Printf(" Ripemd160Hash:%x\n", out.Ripemd160Hash)
 			}
 		}
 
@@ -194,9 +196,10 @@ func (blockchain *Blockchain) MineNewBlock(from, to, amount []string) {
 
 	var txs []*Transaction
 
+	//verify the validity of each transaction
 	for index, address := range from {
 		value, _ := strconv.Atoi(amount[index])
-		// establish a transaction
+		// establish a transaction and sign
 		tx := NewSimpleTransaction(address, to[index], value, blockchain, txs)
 		txs = append(txs, tx)
 	}
@@ -220,6 +223,13 @@ func (blockchain *Blockchain) MineNewBlock(from, to, amount []string) {
 	})
 	if err != nil {
 		errors.New("view database failed")
+	}
+
+	//verify transactions
+	for _, tx := range txs {
+		if blockchain.VerifyTransaction(tx) == false {
+			log.Panic("transaction verify failed")
+		}
 	}
 
 	// Establish new block with new height, Hash and txs
@@ -255,7 +265,11 @@ func (blockchain *Blockchain) UnUTXOs(address string, txs []*Transaction) []*UTX
 	for _, tx := range txs {
 		if tx.IsCoinbaseTransaction() == false {
 			for _, in := range tx.Vins {
-				if in.UnlockWithAddress(address) {
+				//decode address(from)
+				version_ripemd160Hash_checkSumBytes := Base58Decode([]byte(address))
+				//get ripemd160Hash
+				ripemd160Hash_in_address := version_ripemd160Hash_checkSumBytes[1 : len(version_ripemd160Hash_checkSumBytes)-4]
+				if in.UnlockWithRipemd160Hash(ripemd160Hash_in_address) {
 					key := hex.EncodeToString(in.TxHash)
 					spentTXOutputs[key] = append(spentTXOutputs[key], in.Vout)
 				}
@@ -303,7 +317,11 @@ func (blockchain *Blockchain) UnUTXOs(address string, txs []*Transaction) []*UTX
 			tx := block.Txs[i]
 			if tx.IsCoinbaseTransaction() == false {
 				for _, in := range tx.Vins {
-					if in.UnlockWithAddress(address) {
+					//decode address(from)
+					version_ripemd160Hash_checkSumBytes := Base58Decode([]byte(address))
+					//get ripemd160Hash
+					ripemd160Hash_in_address := version_ripemd160Hash_checkSumBytes[1 : len(version_ripemd160Hash_checkSumBytes)-4]
+					if in.UnlockWithRipemd160Hash(ripemd160Hash_in_address) {
 						key := hex.EncodeToString(in.TxHash)
 						spentTXOutputs[key] = append(spentTXOutputs[key], in.Vout)
 					}
@@ -358,4 +376,70 @@ func (blockchain *Blockchain) GetBalance(address string) int64 {
 		amount = amount + utxo.Output.Value
 	}
 	return amount
+}
+
+//signature
+
+func (blockchain *Blockchain) SignTransaction(tx *Transaction, privateKey ecdsa.PrivateKey) {
+
+	if tx.IsCoinbaseTransaction() {
+		return
+	}
+
+	//get previous transactions and store them in a map
+	preTXs := make(map[string]Transaction)
+
+	//range Vins and get hash of preTXs, and regard hash as key of map
+	for _, input := range tx.Vins {
+		preTX, err := blockchain.FindTransaction(input.TxHash)
+		if err != nil {
+			log.Panic(err)
+		}
+		preTXs[hex.EncodeToString(preTX.TxHash)] = preTX
+	}
+
+	//use privateKey and preTXs
+	//it indicates that you have spent this transaction
+	tx.Sign(privateKey, preTXs)
+
+}
+
+func (blockchain *Blockchain) FindTransaction(currentInputHash []byte) (Transaction, error) {
+
+	//range all blocks' transactions
+	bci := blockchain.Iterator()
+
+	for {
+		block := bci.Next()
+
+		for _, tx := range block.Txs {
+			if bytes.Compare(tx.TxHash, currentInputHash) == 0 {
+				return *tx, nil
+			}
+		}
+		var hashInt big.Int
+		hashInt.SetBytes(block.PreBlockHash)
+		if big.NewInt(0).Cmp(&hashInt) == 0 {
+			break
+		}
+	}
+	return Transaction{}, nil
+}
+
+//verify
+
+func (blockchain *Blockchain) VerifyTransaction(tx *Transaction) bool {
+
+	//get previous transactions and store them in a map
+	preTXs := make(map[string]Transaction)
+
+	//range Vins and get hash of preTXs, and regard hash as key of map
+	for _, input := range tx.Vins {
+		preTX, err := blockchain.FindTransaction(input.TxHash)
+		if err != nil {
+			log.Panic(err)
+		}
+		preTXs[hex.EncodeToString(preTX.TxHash)] = preTX
+	}
+	return tx.Verify(preTXs)
 }

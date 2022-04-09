@@ -49,7 +49,7 @@ func (proofOfWork *ProofOfWork) Run() ([]byte, int64) {
 		dataBytes := proofOfWork.prepareData(int64(nonce))
 
 		hash = sha256.Sum256(dataBytes)
-		fmt.Printf("New block's hash is:%x\r", hash)
+		fmt.Printf("Block hash:%x\r", hash)
 
 		hashInt.SetBytes(hash[:])
 		if proofOfWork.target.Cmp(&hashInt) == 1 {
