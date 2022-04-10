@@ -10,6 +10,7 @@ import (
 	"encoding/hex"
 	"log"
 	"math/big"
+	"time"
 )
 
 //UTXO
@@ -47,7 +48,7 @@ func NewCoinbaseTransAction(address string) *Transaction {
 	return txCoinbase
 }
 
-//SerializeBlock
+//Set transaction, it is also unique
 
 func (tx *Transaction) HashTransaction() {
 
@@ -58,7 +59,9 @@ func (tx *Transaction) HashTransaction() {
 	if err != nil {
 		log.Panic(err)
 	}
-	hash := sha256.Sum256(result.Bytes())
+
+	resultBytes := bytes.Join([][]byte{IntToHex(time.Now().Unix()), result.Bytes()}, []byte{})
+	hash := sha256.Sum256(resultBytes)
 
 	tx.TxHash = hash[:]
 }
@@ -99,7 +102,7 @@ func NewSimpleTransaction(from, to string, amount int, blockchain *Blockchain, t
 	//sign
 	//use privateKey to sign automatically, but in fact, privateKey should be input by sender
 	//wallet and blockchain are two separate systems
-	blockchain.SignTransaction(tx, wallet.PrivateKey)
+	blockchain.SignTransaction(tx, wallet.PrivateKey, txs)
 
 	return tx
 }

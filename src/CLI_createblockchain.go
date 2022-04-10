@@ -4,6 +4,9 @@ func (cli *CLI) creatGenesisBlockChain(address string) {
 
 	// create coinbase transaction
 	blockchain := CreatBlockchainWithGenesisBlock(address)
-	blockchain.DB.Close()
+	//remember to close db
+	defer blockchain.DB.Close()
 
+	utxoSet := &UTXOSet{blockchain}
+	utxoSet.ResetUTXOSet()
 }

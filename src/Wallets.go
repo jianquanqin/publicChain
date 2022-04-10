@@ -10,7 +10,7 @@ import (
 	"os"
 )
 
-const walletFile = "Wallets.dat"
+const walletFile = "wallets.dat"
 
 //a struct to collect wallet
 

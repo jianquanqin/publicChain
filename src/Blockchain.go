@@ -204,9 +204,13 @@ func (blockchain *Blockchain) MineNewBlock(from, to, amount []string) {
 		txs = append(txs, tx)
 	}
 
-	fmt.Println(from)
-	fmt.Println(to)
-	fmt.Println(amount)
+	//fmt.Println(from)
+	//fmt.Println(to)
+	//fmt.Println(amount)
+
+	//reward
+	tx := NewCoinbaseTransAction(from[0])
+	txs = append(txs, tx)
 
 	// Establish transaction slices through relevant algorithms
 
@@ -225,11 +229,14 @@ func (blockchain *Blockchain) MineNewBlock(from, to, amount []string) {
 		errors.New("view database failed")
 	}
 
+	_txs := []*Transaction{}
+
 	//verify transactions
 	for _, tx := range txs {
-		if blockchain.VerifyTransaction(tx) == false {
+		if blockchain.VerifyTransaction(tx, _txs) == false {
 			log.Panic("transaction verify failed")
 		}
+		_txs = append(_txs, tx)
 	}
 
 	// Establish new block with new height, Hash and txs
@@ -380,7 +387,7 @@ func (blockchain *Blockchain) GetBalance(address string) int64 {
 
 //signature
 
-func (blockchain *Blockchain) SignTransaction(tx *Transaction, privateKey ecdsa.PrivateKey) {
+func (blockchain *Blockchain) SignTransaction(tx *Transaction, privateKey ecdsa.PrivateKey, txs []*Transaction) {
 
 	if tx.IsCoinbaseTransaction() {
 		return
@@ -391,7 +398,7 @@ func (blockchain *Blockchain) SignTransaction(tx *Transaction, privateKey ecdsa.
 
 	//range Vins and get hash of preTXs, and regard hash as key of map
 	for _, input := range tx.Vins {
-		preTX, err := blockchain.FindTransaction(input.TxHash)
+		preTX, err := blockchain.FindTransaction(input.TxHash, txs)
 		if err != nil {
 			log.Panic(err)
 		}
@@ -404,8 +411,14 @@ func (blockchain *Blockchain) SignTransaction(tx *Transaction, privateKey ecdsa.
 
 }
 
-func (blockchain *Blockchain) FindTransaction(currentInputHash []byte) (Transaction, error) {
+func (blockchain *Blockchain) FindTransaction(currentInputHash []byte, txs []*Transaction) (Transaction, error) {
 
+	//range unpacked txs
+	for _, tx := range txs {
+		if bytes.Compare(tx.TxHash, currentInputHash) == 0 {
+			return *tx, nil
+		}
+	}
 	//range all blocks' transactions
 	bci := blockchain.Iterator()
 
@@ -428,18 +441,85 @@ func (blockchain *Blockchain) FindTransaction(currentInputHash []byte) (Transact
 
 //verify
 
-func (blockchain *Blockchain) VerifyTransaction(tx *Transaction) bool {
+func (blockchain *Blockchain) VerifyTransaction(tx *Transaction, txs []*Transaction) bool {
 
 	//get previous transactions and store them in a map
 	preTXs := make(map[string]Transaction)
 
 	//range Vins and get hash of preTXs, and regard hash as key of map
 	for _, input := range tx.Vins {
-		preTX, err := blockchain.FindTransaction(input.TxHash)
+		preTX, err := blockchain.FindTransaction(input.TxHash, txs)
 		if err != nil {
 			log.Panic(err)
 		}
 		preTXs[hex.EncodeToString(preTX.TxHash)] = preTX
 	}
 	return tx.Verify(preTXs)
+}
+
+func (blockchain *Blockchain) FindUTXOMap() map[string]*TXOutputs {
+
+	blcIterator := blockchain.Iterator()
+
+	//collect all inputs
+	spentableUTXOMap := make(map[string][]*TXInput)
+	utxoMaps := make(map[string]*TXOutputs)
+
+	for {
+		block := blcIterator.Next()
+
+		//range each block
+		for i := len(block.Txs) - 1; i >= 0; i-- {
+			tx := block.Txs[i]
+			if tx.IsCoinbaseTransaction() == false {
+				//get inputs
+				for _, txInput := range tx.Vins {
+					//store inputs
+					txInputHash := hex.EncodeToString(txInput.TxHash)
+					spentableUTXOMap[txInputHash] = append(spentableUTXOMap[txInputHash], txInput)
+				}
+			}
+
+			txOutputs := &TXOutputs{[]*UTXO{}}
+			//convert []byte to string
+			txHash := hex.EncodeToString(tx.TxHash)
+		workOutLoop:
+			//get all outputs
+			for index, output := range tx.Vouts {
+				//get a specific input
+				txInputs := spentableUTXOMap[txHash]
+				if len(txInputs) > 0 {
+					isSpent := false
+					for _, input := range txInputs {
+						//match input and output
+						outputPubKey := output.Ripemd160Hash
+						inputPubKey := input.PublicKey
+						if bytes.Compare(outputPubKey, Ripemd160Hash(inputPubKey)) == 0 {
+							if index == input.Vout {
+								isSpent = true
+								continue workOutLoop
+							}
+						}
+					}
+					if isSpent == false {
+						utxo := &UTXO{tx.TxHash, index, output}
+						txOutputs.UTXOS = append(txOutputs.UTXOS, utxo)
+					}
+
+				} else {
+					utxo := &UTXO{tx.TxHash, index, output}
+					txOutputs.UTXOS = append(txOutputs.UTXOS, utxo)
+				}
+			}
+			//set key
+			utxoMaps[txHash] = txOutputs
+		}
+		var hashInt big.Int
+		hashInt.SetBytes(block.PreBlockHash)
+
+		if hashInt.Cmp(big.NewInt(0)) == 0 {
+			break
+		}
+	}
+	return utxoMaps
 }

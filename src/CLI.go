@@ -17,6 +17,7 @@ func printUsage() {
 	fmt.Println("\ttransfer -from FROM -to TO -amount AMOUNT --transaction details")
 	fmt.Println("\tprintChain -- output block's information")
 	fmt.Println("\tgetBalance -address -- output balance")
+	fmt.Println("\ttestReset -- reset")
 }
 func isValidArgs() {
 	if len(os.Args) < 2 {
@@ -27,6 +28,7 @@ func isValidArgs() {
 func (cli CLI) Run() {
 	isValidArgs()
 	//custom command
+	testResetCmd := flag.NewFlagSet("testReset", flag.ExitOnError)
 	getAddressListCmd := flag.NewFlagSet("getAddressList", flag.ExitOnError)
 	createWalletCmd := flag.NewFlagSet("createWallet", flag.ExitOnError)
 	transferBlockCmd := flag.NewFlagSet("transfer", flag.ExitOnError)
@@ -42,6 +44,11 @@ func (cli CLI) Run() {
 	getBalanceWithAddress := getBalanceCmd.String("address", "", "inquire one's account")
 
 	switch os.Args[1] {
+	case "testReset":
+		err := testResetCmd.Parse(os.Args[2:])
+		if err != nil {
+			log.Panic(err)
+		}
 	case "getAddressList":
 		err := getAddressListCmd.Parse(os.Args[2:])
 		if err != nil {
@@ -75,6 +82,10 @@ func (cli CLI) Run() {
 	default:
 		printUsage()
 		os.Exit(1)
+	}
+	if testResetCmd.Parsed() {
+
+		cli.TestMethod()
 	}
 	if getAddressListCmd.Parsed() {
 
