@@ -1,8 +1,6 @@
 package main
 
-import (
-	"publicChain/Part57-wallets-input-output-update/src"
-)
+import "publicChain/Part66-UTXOSet-transfer/src"
 
 func main() {
 	cli := src.CLI{}
