@@ -3,12 +3,12 @@ package src
 import "crypto/sha256"
 
 type MerkleTree struct {
-	RootNode MerkleNode
+	RootNode *MerkleNode
 }
 
 type MerkleNode struct {
 	Left  *MerkleNode
-	Right *MerkleNode
+	right *MerkleNode
 	Data  []byte
 }
 
@@ -18,7 +18,7 @@ func NewMerkleTree(data [][]byte) *MerkleTree {
 	if len(data)%2 != 0 {
 		data = append(data, data[len(data)-1])
 	}
-	//create leaves node
+
 	for _, datum := range data {
 		node := NewMerkleNode(nil, nil, datum)
 		nodes = append(nodes, *node)
@@ -31,28 +31,31 @@ func NewMerkleTree(data [][]byte) *MerkleTree {
 			node := NewMerkleNode(&nodes[j], &nodes[j+1], nil)
 			newLevel = append(newLevel, *node)
 		}
-		if len(newLevel)/2 != 0 {
+
+		if len(newLevel)%2 != 0 {
 			newLevel = append(newLevel, newLevel[len(newLevel)-1])
 		}
 		nodes = newLevel
 	}
-	mTree := MerkleTree{nodes[0]}
+	mTree := MerkleTree{&nodes[0]}
 	return &mTree
 }
 
 func NewMerkleNode(left, right *MerkleNode, data []byte) *MerkleNode {
 	mNode := MerkleNode{}
 
+	//create leaf nodes
 	if left == nil && right == nil {
 		hash := sha256.Sum256(data)
 		mNode.Data = hash[:]
 	} else {
-		prevHashes := append(left.Data, right.Data...)
-		hash := sha256.Sum256(prevHashes)
+		preHashes := append(left.Data, right.Data...)
+		hash := sha256.Sum256(preHashes)
 		mNode.Data = hash[:]
 	}
+
 	mNode.Left = left
-	mNode.Right = right
+	mNode.right = right
 
 	return &mNode
 }

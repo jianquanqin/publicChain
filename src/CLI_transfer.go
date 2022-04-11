@@ -12,7 +12,13 @@ func (cli CLI) send(from []string, to []string, amount []string) {
 		os.Exit(1)
 	}
 
+	//mine a new clock
 	blockchain := BlockChainObject()
 	defer blockchain.DB.Close()
 	blockchain.MineNewBlock(from, to, amount)
+
+	//when finished the transaction, update the data
+	utxoSet := &UTXOSet{blockchain}
+	utxoSet.Update()
+
 }

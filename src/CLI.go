@@ -17,7 +17,7 @@ func printUsage() {
 	fmt.Println("\ttransfer -from FROM -to TO -amount AMOUNT --transaction details")
 	fmt.Println("\tprintChain -- output block's information")
 	fmt.Println("\tgetBalance -address -- output balance")
-	fmt.Println("\ttestReset -- reset")
+	fmt.Println("\ttest -- test tool")
 }
 func isValidArgs() {
 	if len(os.Args) < 2 {
@@ -28,7 +28,7 @@ func isValidArgs() {
 func (cli CLI) Run() {
 	isValidArgs()
 	//custom command
-	testResetCmd := flag.NewFlagSet("testReset", flag.ExitOnError)
+	testCmd := flag.NewFlagSet("test", flag.ExitOnError)
 	getAddressListCmd := flag.NewFlagSet("getAddressList", flag.ExitOnError)
 	createWalletCmd := flag.NewFlagSet("createWallet", flag.ExitOnError)
 	transferBlockCmd := flag.NewFlagSet("transfer", flag.ExitOnError)
@@ -44,8 +44,8 @@ func (cli CLI) Run() {
 	getBalanceWithAddress := getBalanceCmd.String("address", "", "inquire one's account")
 
 	switch os.Args[1] {
-	case "testReset":
-		err := testResetCmd.Parse(os.Args[2:])
+	case "test":
+		err := testCmd.Parse(os.Args[2:])
 		if err != nil {
 			log.Panic(err)
 		}
@@ -83,9 +83,9 @@ func (cli CLI) Run() {
 		printUsage()
 		os.Exit(1)
 	}
-	if testResetCmd.Parsed() {
+	if testCmd.Parsed() {
 
-		cli.TestMethod()
+		cli.Test()
 	}
 	if getAddressListCmd.Parsed() {
 

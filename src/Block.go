@@ -2,7 +2,6 @@ package src
 
 import (
 	"bytes"
-	"crypto/sha256"
 	"encoding/gob"
 	"fmt"
 	"log"
@@ -60,15 +59,22 @@ func CrateGenesisBlock(txs []*Transaction) *Block {
 
 func (block *Block) HashTransactions() []byte {
 
-	var txHashes [][]byte
-	var txHash [32]byte
+	//var txHashes [][]byte
+	//var txHash [32]byte
+	//
+	//for _, tx := range block.Txs {
+	//	txHashes = append(txHashes, tx.TxHash)
+	//}
+	//txHash = sha256.Sum256(bytes.Join(txHashes, []byte{}))
+	//
+	//return txHash[:]
 
+	var transactions [][]byte
 	for _, tx := range block.Txs {
-		txHashes = append(txHashes, tx.TxHash)
+		transactions = append(transactions, tx.Serialize())
 	}
-	txHash = sha256.Sum256(bytes.Join(txHashes, []byte{}))
-
-	return txHash[:]
+	mTree := NewMerkleTree(transactions)
+	return mTree.RootNode.Data
 }
 
 //serialize blocks for easy storage
