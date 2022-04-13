@@ -66,10 +66,10 @@ func (tx *Transaction) HashTransaction() {
 	tx.TxHash = hash[:]
 }
 
-func NewSimpleTransaction(from, to string, amount int, blockchain *Blockchain, txs []*Transaction) *Transaction {
+func NewSimpleTransaction(from, to string, amount int, blockchain *Blockchain, txs []*Transaction, nodeID string) *Transaction {
 
 	//get wallets and get publicKey
-	wallets, _ := NewWallets()
+	wallets, _ := NewWallets(nodeID)
 	wallet := wallets.WalletMap[from]
 
 	money, spendableUTXODic := blockchain.FindSpendableUTXOS(from, amount, txs)

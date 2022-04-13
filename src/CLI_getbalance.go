@@ -2,11 +2,11 @@ package src
 
 import "fmt"
 
-func (cli CLI) getBalance(address string) {
+func (cli CLI) getBalance(address string, nodeID string) {
 
 	//fmt.Println("Address：" + address)
 
-	blockchain := BlockChainObject()
+	blockchain := BlockChainObject(nodeID)
 	defer blockchain.DB.Close()
 
 	utxoSet := &UTXOSet{blockchain}

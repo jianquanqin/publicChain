@@ -13,6 +13,7 @@ type MerkleNode struct {
 }
 
 func NewMerkleTree(data [][]byte) *MerkleTree {
+	//get all nodes
 	var nodes []MerkleNode
 
 	if len(data)%2 != 0 {
@@ -42,6 +43,7 @@ func NewMerkleTree(data [][]byte) *MerkleTree {
 }
 
 func NewMerkleNode(left, right *MerkleNode, data []byte) *MerkleNode {
+
 	mNode := MerkleNode{}
 
 	//create leaf nodes

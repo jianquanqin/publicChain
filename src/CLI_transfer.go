@@ -1,24 +1,20 @@
 package src
 
-import (
-	"fmt"
-	"os"
-)
+import "fmt"
 
-func (cli CLI) send(from []string, to []string, amount []string) {
+func (cli CLI) send(from []string, to []string, amount []string, nodeID string, mineNow bool) {
 
-	if DBExists() == false {
-		fmt.Println("data didn't exist")
-		os.Exit(1)
-	}
-
-	//mine a new clock
-	blockchain := BlockChainObject()
+	blockchain := BlockChainObject(nodeID)
 	defer blockchain.DB.Close()
-	blockchain.MineNewBlock(from, to, amount)
+	if mineNow {
+		//mine a new clock
+		blockchain.MineNewBlock(from, to, amount, nodeID)
 
-	//when finished the transaction, update the data
-	utxoSet := &UTXOSet{blockchain}
-	utxoSet.Update()
-
+		//when finished the transaction, update the data
+		utxoSet := &UTXOSet{blockchain}
+		utxoSet.Update()
+	} else {
+		//send transaction to miner verify
+		fmt.Println("handled by miner node...")
+	}
 }

@@ -14,10 +14,11 @@ func printUsage() {
 	fmt.Println("\tcreateWallet -- create wallet")
 	fmt.Println("\tgetAddressList -- print all wallet's address")
 	fmt.Println("\tcreateBlockChain -address --genesis address")
-	fmt.Println("\ttransfer -from FROM -to TO -amount AMOUNT --transaction details")
+	fmt.Println("\ttransfer -from FROM -to TO -amount AMOUNT -mine NOTMINE --transaction details")
 	fmt.Println("\tprintChain -- output block's information")
 	fmt.Println("\tgetBalance -address -- output balance")
 	fmt.Println("\ttest -- test tool")
+	fmt.Println("\tstartNode -miner ADDRESS -- start the node server,and specify the mining reward address")
 }
 func isValidArgs() {
 	if len(os.Args) < 2 {
@@ -27,6 +28,15 @@ func isValidArgs() {
 }
 func (cli CLI) Run() {
 	isValidArgs()
+
+	//get node id
+	nodeID := os.Getenv("NODE_ID")
+	if nodeID == "" {
+		fmt.Println("NODE_ID env. var is not set")
+		os.Exit(1)
+	}
+	fmt.Printf("NODE_ID:%s\n", nodeID)
+
 	//custom command
 	testCmd := flag.NewFlagSet("test", flag.ExitOnError)
 	getAddressListCmd := flag.NewFlagSet("getAddressList", flag.ExitOnError)
@@ -35,15 +45,24 @@ func (cli CLI) Run() {
 	printChainCmd := flag.NewFlagSet("printChain", flag.ExitOnError)
 	createBlockChainCmd := flag.NewFlagSet("createBlockChain", flag.ExitOnError)
 	getBalanceCmd := flag.NewFlagSet("getBalance", flag.ExitOnError)
+	startNodeCmd := flag.NewFlagSet("startNode", flag.ExitOnError)
 
 	flagFrom := transferBlockCmd.String("from", "", "origin address")
 	flagTo := transferBlockCmd.String("to", "", "destination address")
 	flagAmount := transferBlockCmd.String("amount", "", "transfer amount")
+	flagSendBlockVerify := transferBlockCmd.Bool("mine", false, "Whether to verify now")
 
-	flagcreateBlockChainWithAddress := createBlockChainCmd.String("address", "", "create the address of genesis block")
+	flagMiner := startNodeCmd.String("miner", "", "reward address")
+
+	flagCreateBlockChainWithAddress := createBlockChainCmd.String("address", "", "create the address of genesis block")
 	getBalanceWithAddress := getBalanceCmd.String("address", "", "inquire one's account")
 
 	switch os.Args[1] {
+	case "startNode":
+		err := startNodeCmd.Parse(os.Args[2:])
+		if err != nil {
+			log.Panic(err)
+		}
 	case "test":
 		err := testCmd.Parse(os.Args[2:])
 		if err != nil {
@@ -83,17 +102,25 @@ func (cli CLI) Run() {
 		printUsage()
 		os.Exit(1)
 	}
+	if startNodeCmd.Parsed() {
+		if IsValidForAddress([]byte(*flagMiner)) == false {
+			//fmt.Println("address is invalid")
+			//printUsage()
+			//os.Exit(1)
+		}
+		cli.StartNode(nodeID, *flagMiner)
+	}
 	if testCmd.Parsed() {
 
 		cli.Test()
 	}
 	if getAddressListCmd.Parsed() {
 
-		cli.GetAddressList()
+		cli.GetAddressList(nodeID)
 	}
 	if createWalletCmd.Parsed() {
 
-		cli.createWallet()
+		cli.createWallet(nodeID)
 	}
 	if transferBlockCmd.Parsed() {
 		if *flagFrom == "" || *flagTo == "" || *flagAmount == "" {
@@ -114,20 +141,20 @@ func (cli CLI) Run() {
 		}
 
 		amount := JSONToArray(*flagAmount)
-		cli.send(from, to, amount)
+		cli.send(from, to, amount, nodeID, *flagSendBlockVerify)
 	}
 	if printChainCmd.Parsed() {
 		//fmt.Println("output all blocks' information")
-		cli.printChain()
+		cli.printChain(nodeID)
 	}
 	if createBlockChainCmd.Parsed() {
 
-		if IsValidForAddress([]byte(*flagcreateBlockChainWithAddress)) == false {
+		if IsValidForAddress([]byte(*flagCreateBlockChainWithAddress)) == false {
 			fmt.Println("address is invalid")
 			printUsage()
 			os.Exit(1)
 		}
-		cli.creatGenesisBlockChain(*flagcreateBlockChainWithAddress)
+		cli.creatGenesisBlockChain(*flagCreateBlockChainWithAddress, nodeID)
 
 	}
 	if getBalanceCmd.Parsed() {
@@ -143,6 +170,6 @@ func (cli CLI) Run() {
 			os.Exit(1)
 		}
 
-		cli.getBalance(*getBalanceWithAddress)
+		cli.getBalance(*getBalanceWithAddress, nodeID)
 	}
 }

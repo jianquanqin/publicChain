@@ -14,7 +14,7 @@ import (
 	"time"
 )
 
-const dbName = "blockChain.db"
+const dbName = "blockChain_%s.db"
 const blockTableName = "blocks"
 
 //define a blockChain
@@ -29,7 +29,7 @@ type Blockchain struct {
 
 //check if the database exists
 
-func DBExists() bool {
+func DBExists(dbname string) bool {
 	if _, err := os.Stat(dbName); os.IsNotExist(err) {
 		return false
 	}
@@ -91,9 +91,12 @@ func (blockchain *Blockchain) PrintChain() {
 //create a new blockchain with genesis block
 //store the genesis block in db
 
-func CreatBlockchainWithGenesisBlock(address string) *Blockchain {
+func CreatBlockchainWithGenesisBlock(address string, nodeID string) *Blockchain {
 
-	if DBExists() {
+	//format db name
+	dbName := fmt.Sprintf(dbName, nodeID)
+
+	if DBExists(dbName) {
 		fmt.Println("Genesis block existed")
 		os.Exit(1)
 	}
@@ -141,7 +144,16 @@ func CreatBlockchainWithGenesisBlock(address string) *Blockchain {
 
 //get the latest status of the blockchain
 
-func BlockChainObject() *Blockchain {
+func BlockChainObject(nodeID string) *Blockchain {
+
+	//format db name
+	dbName := fmt.Sprintf(dbName, nodeID)
+
+	if DBExists(dbName) {
+		fmt.Println("database didn't exist")
+		os.Exit(1)
+
+	}
 
 	//creat a database
 	db, err := bolt.Open(dbName, 0600, nil)
@@ -192,7 +204,7 @@ func (blockchain *Blockchain) FindSpendableUTXOS(from string, amount int, txs []
 
 //when transactions are finished, start to package the transaction to generate a new block
 
-func (blockchain *Blockchain) MineNewBlock(from, to, amount []string) {
+func (blockchain *Blockchain) MineNewBlock(from, to, amount []string, nodeID string) {
 
 	var txs []*Transaction
 
@@ -200,7 +212,7 @@ func (blockchain *Blockchain) MineNewBlock(from, to, amount []string) {
 	for index, address := range from {
 		value, _ := strconv.Atoi(amount[index])
 		// establish a transaction and sign
-		tx := NewSimpleTransaction(address, to[index], value, blockchain, txs)
+		tx := NewSimpleTransaction(address, to[index], value, blockchain, txs, nodeID)
 		txs = append(txs, tx)
 	}
 
@@ -522,4 +534,10 @@ func (blockchain *Blockchain) FindUTXOMap() map[string]*TXOutputs {
 		}
 	}
 	return utxoMaps
+}
+func (blockchain *Blockchain) GetBestHeight() int64 {
+
+	block := blockchain.Iterator().Next()
+
+	return block.Height
 }

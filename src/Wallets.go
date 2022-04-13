@@ -10,7 +10,7 @@ import (
 	"os"
 )
 
-const walletFile = "wallets.dat"
+const walletFile = "wallets_%s.dat"
 
 //a struct to collect wallet
 
@@ -20,7 +20,9 @@ type Wallets struct {
 
 //creates a new wallets
 
-func NewWallets() (*Wallets, error) {
+func NewWallets(nodeID string) (*Wallets, error) {
+
+	walletFile := fmt.Sprintf(walletFile, nodeID)
 
 	//to find the file,if there is no file,create a one
 	if _, err := os.Stat(walletFile); os.IsNotExist(err) {
@@ -48,16 +50,19 @@ func NewWallets() (*Wallets, error) {
 	return &wallets, nil
 }
 
-func (wallets *Wallets) CreatNewWallet() {
+func (wallets *Wallets) CreatNewWallet(nodeID string) {
+
 	//create a new wallet
 	wallet := NewWallet()
 	fmt.Printf("Wallet address: %s\n", wallet.GetAddress())
 	//throw wallet into wallets (a map),instantiate structs' element
 	wallets.WalletMap[string(wallet.GetAddress())] = wallet
-	wallets.SaveWallets()
+	wallets.SaveWallets(nodeID)
 }
 
-func (wallets *Wallets) SaveWallets() {
+func (wallets *Wallets) SaveWallets(nodeID string) {
+
+	walletFile := fmt.Sprintf(walletFile, nodeID)
 
 	//serialize
 

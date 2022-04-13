@@ -1,17 +1,8 @@
 package src
 
-import (
-	"fmt"
-	"os"
-)
+func (cli CLI) printChain(nodeID string) {
 
-func (cli CLI) printChain() {
-
-	if DBExists() == false {
-		fmt.Println("database didn't exist")
-		os.Exit(1)
-	}
-	blockchain := BlockChainObject()
+	blockchain := BlockChainObject(nodeID)
 	defer blockchain.DB.Close()
 	blockchain.PrintChain()
 

@@ -6,7 +6,6 @@ import (
 	"crypto/elliptic"
 	"crypto/rand"
 	"crypto/sha256"
-	"fmt"
 	"golang.org/x/crypto/ripemd160"
 	"log"
 )
@@ -29,7 +28,8 @@ func IsValidForAddress(address []byte) bool {
 	version_publicKey_checkSumBytes := Base58Decode(address)
 
 	if len(version_publicKey_checkSumBytes) < 4 {
-		fmt.Println("The address is not long enough")
+		//fmt.Println("The address is not long enough")
+		return false
 	}
 
 	//get checkSumbytes, the first method to get checkSumBytes
