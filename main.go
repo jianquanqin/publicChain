@@ -1,6 +1,6 @@
 package main
 
-import "publicChain/Part69-Merkle-tree/src"
+import "publicChain/Part84-Net-validation/src"
 
 func main() {
 	cli := src.CLI{}
