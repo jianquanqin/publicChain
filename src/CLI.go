@@ -112,7 +112,7 @@ func (cli CLI) Run() {
 	}
 	if testCmd.Parsed() {
 
-		cli.Test()
+		cli.Test(nodeID)
 	}
 	if getAddressListCmd.Parsed() {
 

@@ -535,9 +535,73 @@ func (blockchain *Blockchain) FindUTXOMap() map[string]*TXOutputs {
 	}
 	return utxoMaps
 }
+
 func (blockchain *Blockchain) GetBestHeight() int64 {
 
 	block := blockchain.Iterator().Next()
 
 	return block.Height
+}
+func (blockchain *Blockchain) GetBlockHashes() [][]byte {
+	blockIterator := blockchain.Iterator()
+	var blockHashes [][]byte
+
+	for {
+
+		block := blockIterator.Next()
+		blockHashes = append(blockHashes, block.Hash)
+
+		var hashInt big.Int
+		hashInt.SetBytes(block.PreBlockHash)
+		if hashInt.Cmp(big.NewInt(0)) == 0 {
+			break
+		}
+	}
+	return blockHashes
+}
+
+func (blockchain *Blockchain) GetBlock(blockHash []byte) (*Block, error) {
+
+	var block *Block
+
+	err := blockchain.DB.View(func(tx *bolt.Tx) error {
+		b := tx.Bucket([]byte(blockTableName))
+		if b != nil {
+			blockBytes := b.Get(blockHash)
+			block = DeserializeBlock(blockBytes)
+		}
+		return nil
+	})
+
+	return block, err
+}
+
+func (blockchain *Blockchain) AddBlock(block *Block) error {
+
+	err := blockchain.DB.Update(func(tx *bolt.Tx) error {
+
+		b := tx.Bucket([]byte(blockTableName))
+		if b != nil {
+			blockExist := b.Get(block.Hash)
+			if blockExist != nil {
+				return nil
+			}
+
+			err := b.Put(block.Hash, block.Serialize())
+			if err != nil {
+				log.Panic(err)
+			}
+
+			blockHash := b.Get([]byte("l"))
+			blockBytes := b.Get(blockHash)
+			blockInDB := DeserializeBlock(blockBytes)
+
+			if blockInDB.Height < block.Height {
+				b.Put([]byte("l"), block.Hash)
+				blockchain.Tip = block.Hash
+			}
+		}
+		return nil
+	})
+	return err
 }
